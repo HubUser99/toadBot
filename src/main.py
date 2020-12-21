@@ -122,7 +122,7 @@ def main():
 
     jq = updater.job_queue
     global job_send_toad
-    job_send_toad = jq.run_repeating(send_toad, interval=15, first=0)
+    job_send_toad = jq.run_repeating(send_toad, interval=(3600 * 24), first=0)
 
     # log all errors
     dp.add_error_handler(error)
