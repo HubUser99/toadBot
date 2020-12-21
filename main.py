@@ -7,6 +7,8 @@ import datetime
 from os import walk
 import random
 import ast
+from json import dumps, loads, JSONEncoder, JSONDecoder
+import pickle
 
 import constants
 
@@ -20,7 +22,8 @@ f = []
 for (dirpath, dirnames, filenames) in walk(mypath):
     f.extend(filenames)
     break
-image_index = 0
+
+job_minute = None
 
 # Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -29,10 +32,11 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 logger = logging.getLogger(__name__)
 
 # Store chat ids
-chat_ids = set()
-if os.path.isfile('chat_ids.txt'):
-    with open('chat_ids.txt', 'r') as file:
-        chat_ids = ast.literal_eval(file.read())
+persistent_data = {'chat_ids': [], "image_index": 0}
+
+if os.path.isfile('data.txt'):
+    with open('data.txt', 'r') as file:
+        persistent_data = json.load(file)
 
 # Define a few command handlers. These usually take the two arguments update and
 # context. Error handlers also receive the raised TelegramError object in error.
@@ -41,25 +45,35 @@ if os.path.isfile('chat_ids.txt'):
 def start(update, context):
     """Send a message when the command /start is issued."""
     chat_id = update.effective_chat.id
-    if not chat_id in chat_ids:
-        chat_ids.add(chat_id)
+    if not chat_id in persistent_data['chat_ids']:
+        persistent_data['chat_ids'].append(chat_id)
 
-    with open('chat_ids.txt', 'w') as file:
-        file.write(str(chat_ids))
+        with open('data.txt', 'w') as file:
+            json.dump(persistent_data, file)
 
-    context.bot.send_message(chat_id=chat_id,
-                             text="Toad delivery has been enabled for your chat!")
+        if not job_minute.enabled:
+            job_minute.enabled = True
+
+        context.bot.send_message(chat_id=chat_id,
+                                text="Toad delivery has been enabled for your chat!")
+    else:
+        context.bot.send_message(chat_id=chat_id,
+                                text="Toads already know about this place")
 
 
 def stop(update, context):
     """Send a message when the command /start is issued."""
     chat_id = update.effective_chat.id
-    if chat_id in chat_ids:
-        chat_ids.remove(chat_id)
-        with open('chat_ids.txt', 'w') as file:
-            file.write(str(chat_ids))
-    context.bot.send_message(chat_id=chat_id,
-                             text="Toads will no longer visit you :c")
+    if chat_id in persistent_data['chat_ids']:
+        persistent_data['chat_ids'] = list(filter(
+            lambda id: id != chat_id, persistent_data['chat_ids']))
+        with open('data.txt', 'w') as file:
+            json.dump(persistent_data, file)
+        context.bot.send_message(chat_id=chat_id,
+                                text="Toads will no longer visit you :c")
+    else:
+        context.bot.send_message(chat_id=chat_id,
+                                text="Toads already left")
 
 
 def help(update, context):
@@ -74,28 +88,28 @@ def error(update, context):
 
 
 def send_toad(context: CallbackContext):
-    global image_index
-    if image_index >= len(f):
-        image_index = 0
+    global job_minute
+    global persistent_data
 
-    filename = f[image_index]
-    image_index += 1
-    image = open('./images/' + filename, 'rb')
-    for id in chat_ids:
-        context.bot.send_photo(chat_id=id,
-                               photo=image,
-                               caption='Nice')
+    if len(persistent_data['chat_ids']) == 0:
+        job_minute.enabled = False
+        return
 
+    if persistent_data['image_index'] >= len(f):
+        persistent_data['image_index'] = 0
 
-def getArgument(text):
-    # trim command itself
-    arg = text[4:len(text)].strip()
+    filename = f[persistent_data['image_index']]
+    persistent_data['image_index'] += 1
 
-    # trim name of the bot in the end, if called with it
-    if (len(arg) >= 15):
-        arg = arg[0:len(arg) - 15]
+    with open('data.txt', 'w') as file:
+        json.dump(persistent_data, file)
 
-    return arg
+    with open('./images/' + filename, 'rb') as file_image:
+        for id in persistent_data['chat_ids']:
+            context.bot.send_photo(chat_id=id,
+                                   photo=file_image,
+                                   caption='Nice')
+            file_image.seek(0)
 
 
 def main():
@@ -119,6 +133,7 @@ def main():
     dp.add_handler(CommandHandler("help", help))
 
     jq = updater.job_queue
+    global job_minute
     job_minute = jq.run_repeating(send_toad, interval=15, first=0)
 
     # log all errors
