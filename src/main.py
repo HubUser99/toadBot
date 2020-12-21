@@ -92,7 +92,7 @@ def send_toad(context: CallbackContext):
         context.bot.send_photo(chat_id=id,
                                photo=get_image_url(
                                    persistent_data['image_index']),
-                               caption='Nice')
+                               caption='Toad of the day')
 
     persistent_data['image_index'] += 1
 
@@ -121,7 +121,7 @@ def main():
 
     jq = updater.job_queue
     global job_send_toad
-    job_send_toad = jq.run_repeating(send_toad, interval=(10), first=0)
+    job_send_toad = jq.run_repeating(send_toad, interval=(3600 * 24 * 1), first=0)
 
     # log all errors
     dp.add_error_handler(error)
