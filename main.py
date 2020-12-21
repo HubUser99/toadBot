@@ -6,6 +6,7 @@ import json
 import datetime
 from os import walk
 import random
+import ast
 
 import constants
 
@@ -29,6 +30,9 @@ logger = logging.getLogger(__name__)
 
 # Store chat ids
 chat_ids = set()
+if os.path.isfile('chat_ids.txt'):
+    with open('chat_ids.txt', 'r') as file:
+        chat_ids = ast.literal_eval(file.read())
 
 # Define a few command handlers. These usually take the two arguments update and
 # context. Error handlers also receive the raised TelegramError object in error.
@@ -37,7 +41,12 @@ chat_ids = set()
 def start(update, context):
     """Send a message when the command /start is issued."""
     chat_id = update.effective_chat.id
-    chat_ids.add(chat_id)
+    if not chat_id in chat_ids:
+        chat_ids.add(chat_id)
+
+    with open('chat_ids.txt', 'w') as file:
+        file.write(str(chat_ids))
+
     context.bot.send_message(chat_id=chat_id,
                              text="Toad delivery has been enabled for your chat!")
 
@@ -45,7 +54,10 @@ def start(update, context):
 def stop(update, context):
     """Send a message when the command /start is issued."""
     chat_id = update.effective_chat.id
-    chat_ids.remove(chat_id)
+    if chat_id in chat_ids:
+        chat_ids.remove(chat_id)
+        with open('chat_ids.txt', 'w') as file:
+            file.write(str(chat_ids))
     context.bot.send_message(chat_id=chat_id,
                              text="Toads will no longer visit you :c")
 
