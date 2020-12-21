@@ -1,4 +1,4 @@
-from telegram.ext import Updater, CommandHandler, CallbackContext, Job
+from telegram.ext import Updater, CommandHandler, CallbackContext, Job, JobQueue
 import logging
 import os
 import json
@@ -17,6 +17,7 @@ if RUN_LOCAL:
 
     load_dotenv(dotenv_path)
 
+jq: JobQueue
 job_send_toad: Job
 
 INTERVAL = 3600 * 24
@@ -76,6 +77,11 @@ def interval(update, context):
     global INTERVAL
     INTERVAL = int(argument)
 
+    global job_send_toad
+    job_send_toad.schedule_removal()
+    job_send_toad = jq.run_repeating(
+        send_toad, interval=INTERVAL, first=0)
+
     context.bot.send_message(chat_id=chat_id,
                              text="Toad interval was set to " + str(INTERVAL))
 
@@ -133,6 +139,7 @@ def main():
     dp.add_handler(CommandHandler("interval", interval))
     dp.add_handler(CommandHandler("help", help))
 
+    global jq
     jq = updater.job_queue
     global job_send_toad
     job_send_toad = jq.run_repeating(
