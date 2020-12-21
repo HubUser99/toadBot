@@ -19,6 +19,8 @@ if RUN_LOCAL:
 
 job_send_toad: Job
 
+INTERVAL = 3600 * 24
+
 persistent_data: Dict[str, Any] = get_data_from_file()
 
 # Enable logging
@@ -66,9 +68,22 @@ def stop(update, context):
                                  text="Toads already left")
 
 
+def interval(update, context):
+    """Send a message when the command /start is issued."""
+    chat_id = update.effective_chat.id
+    argument = context.args[0]
+
+    global INTERVAL
+    INTERVAL = int(argument)
+
+    context.bot.send_message(chat_id=chat_id,
+                             text="Toad interval was set to " + str(INTERVAL))
+
+
 def help(update, context):
     """Send a message when the command /help is issued."""
-    helpText = '''/stop - unsubscribe from the toad goodness. Not recommended'''
+    helpText = '''/stop - unsubscribe from the toad goodness. Not recommended\n
+    /interval - set toad interval'''
     update.message.reply_text(helpText)
 
 
@@ -115,11 +130,13 @@ def main():
     # on different commands - answer in Telegram
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CommandHandler("stop", stop))
+    dp.add_handler(CommandHandler("interval", interval))
     dp.add_handler(CommandHandler("help", help))
 
     jq = updater.job_queue
     global job_send_toad
-    job_send_toad = jq.run_repeating(send_toad, interval=(3600 * 24 * 1), first=0)
+    job_send_toad = jq.run_repeating(
+        send_toad, interval=INTERVAL, first=0)
 
     # log all errors
     dp.add_error_handler(error)
