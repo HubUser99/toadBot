@@ -1,79 +1,68 @@
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from telegram.ext import Updater, CommandHandler, CallbackContext, Job
 import logging
-import urllib3
 import os
 import json
-import datetime
-from os import walk
-import random
-import ast
-from json import dumps, loads, JSONEncoder, JSONDecoder
-import pickle
-
-import constants
-
+from utils.files import get_data_from_file, get_images_names, save_data_to_file
 from dotenv import load_dotenv, find_dotenv
-load_dotenv(find_dotenv())
+from typing import Any, Dict
+from utils.utils import remove_item_from_list
 
-http = urllib3.PoolManager()
+dotenv_path = find_dotenv()
 
-mypath = './images'
-f = []
-for (dirpath, dirnames, filenames) in walk(mypath):
-    f.extend(filenames)
-    break
+if len(dotenv_path) == 0:
+    raise Exception("Environment file not found")
 
-job_minute = None
+load_dotenv(dotenv_path)
+
+f = get_images_names()
+
+job_send_toad: Job
+
+persistent_data: Dict[str, Any] = get_data_from_file()
 
 # Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
-
 logger = logging.getLogger(__name__)
 
-# Store chat ids
-persistent_data = {'chat_ids': [], "image_index": 0}
-
-if os.path.isfile('data.txt'):
-    with open('data.txt', 'r') as file:
-        persistent_data = json.load(file)
-
-# Define a few command handlers. These usually take the two arguments update and
-# context. Error handlers also receive the raised TelegramError object in error.
+# Define a few command handlers. These usually take the two arguments update
+# and context. Error handlers also receive the raised TelegramError object in
+# error.
 
 
 def start(update, context):
     """Send a message when the command /start is issued."""
     chat_id = update.effective_chat.id
-    if not chat_id in persistent_data['chat_ids']:
+    if chat_id not in persistent_data['chat_ids']:
         persistent_data['chat_ids'].append(chat_id)
 
-        with open('data.txt', 'w') as file:
-            json.dump(persistent_data, file)
+        save_data_to_file(persistent_data)
 
-        if not job_minute.enabled:
-            job_minute.enabled = True
+        if not job_send_toad.enabled:
+            job_send_toad.enabled = True
 
         context.bot.send_message(chat_id=chat_id,
-                                text="Toad delivery has been enabled for your chat!")
+                                 text="Toad delivery has been enabled for your chat!")
     else:
         context.bot.send_message(chat_id=chat_id,
-                                text="Toads already know about this place")
+                                 text="Toads already know about this place")
 
 
 def stop(update, context):
     """Send a message when the command /start is issued."""
     chat_id = update.effective_chat.id
+
     if chat_id in persistent_data['chat_ids']:
-        persistent_data['chat_ids'] = list(filter(
-            lambda id: id != chat_id, persistent_data['chat_ids']))
-        with open('data.txt', 'w') as file:
-            json.dump(persistent_data, file)
+        persistent_data['chat_ids'] = remove_item_from_list(
+            persistent_data['chat_ids'], chat_id)
+
+        save_data_to_file(persistent_data)
+
         context.bot.send_message(chat_id=chat_id,
-                                text="Toads will no longer visit you :c")
+                                 text="Toads will no longer visit you :c")
     else:
         context.bot.send_message(chat_id=chat_id,
-                                text="Toads already left")
+                                 text="Toads already left")
 
 
 def help(update, context):
@@ -88,11 +77,11 @@ def error(update, context):
 
 
 def send_toad(context: CallbackContext):
-    global job_minute
+    global job_send_toad
     global persistent_data
 
     if len(persistent_data['chat_ids']) == 0:
-        job_minute.enabled = False
+        job_send_toad.enabled = False
         return
 
     if persistent_data['image_index'] >= len(f):
@@ -101,8 +90,7 @@ def send_toad(context: CallbackContext):
     filename = f[persistent_data['image_index']]
     persistent_data['image_index'] += 1
 
-    with open('data.txt', 'w') as file:
-        json.dump(persistent_data, file)
+    save_data_to_file(persistent_data)
 
     with open('./images/' + filename, 'rb') as file_image:
         for id in persistent_data['chat_ids']:
@@ -114,7 +102,7 @@ def send_toad(context: CallbackContext):
 
 def main():
     """Start the bot."""
-    # Create the Updater and pass it your bot's token.
+    # Create the Updater and pass it your bots token.
     # Make sure to set use_context=True to use the new context based callbacks
     # Post version 12 this will no longer be necessary
 
@@ -133,8 +121,8 @@ def main():
     dp.add_handler(CommandHandler("help", help))
 
     jq = updater.job_queue
-    global job_minute
-    job_minute = jq.run_repeating(send_toad, interval=15, first=0)
+    global job_send_toad
+    job_send_toad = jq.run_repeating(send_toad, interval=15, first=0)
 
     # log all errors
     dp.add_error_handler(error)
