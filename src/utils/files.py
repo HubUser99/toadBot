@@ -4,15 +4,6 @@ from .utils import get_path
 from typing import Dict, Any
 
 
-def get_images_names():
-    path = get_path('images')
-    images_names = []
-    for (dirpath, dirnames, filenames) in os.walk(path):
-        images_names.extend(filenames)
-        break
-    return images_names
-
-
 def get_data_from_file() -> Dict[str, Any]:
     path = get_path('data')
     persistent_data: Dict[str, Any] = {'chat_ids': [], "image_index": 0}

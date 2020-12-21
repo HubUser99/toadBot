@@ -14,3 +14,7 @@ def get_path(path: Literal['images', 'data']):
 
 def remove_item_from_list(list_to_use: list, item_to_remove: str):
     return list(filter(lambda item: item != item_to_remove, list_to_use))
+
+
+def get_image_url(index: int):
+    return 'https://raw.githubusercontent.com/jonshamir/frog-dataset/master/data-224/frog-' + str(index) + '.png'

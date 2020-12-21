@@ -5,16 +5,17 @@ import json
 from utils.files import get_data_from_file, get_images_names, save_data_to_file
 from dotenv import load_dotenv, find_dotenv
 from typing import Any, Dict
-from utils.utils import remove_item_from_list
+from utils.utils import get_image_url, remove_item_from_list
 
-dotenv_path = find_dotenv()
+RUN_LOCAL = False
 
-if len(dotenv_path) == 0:
-    raise Exception("Environment file not found")
+if RUN_LOCAL:
+    dotenv_path = find_dotenv()
 
-load_dotenv(dotenv_path)
+    if len(dotenv_path) == 0:
+        raise Exception("Environment file not found")
 
-f = get_images_names()
+    load_dotenv(dotenv_path)
 
 job_send_toad: Job
 
@@ -84,20 +85,18 @@ def send_toad(context: CallbackContext):
         job_send_toad.enabled = False
         return
 
-    if persistent_data['image_index'] >= len(f):
+    if persistent_data['image_index'] >= 7796:
         persistent_data['image_index'] = 0
 
-    filename = f[persistent_data['image_index']]
+    for id in persistent_data['chat_ids']:
+        context.bot.send_photo(chat_id=id,
+                               photo=get_image_url(
+                                   persistent_data['image_index']),
+                               caption='Nice')
+
     persistent_data['image_index'] += 1
 
     save_data_to_file(persistent_data)
-
-    with open('./images/' + filename, 'rb') as file_image:
-        for id in persistent_data['chat_ids']:
-            context.bot.send_photo(chat_id=id,
-                                   photo=file_image,
-                                   caption='Nice')
-            file_image.seek(0)
 
 
 def main():
@@ -122,7 +121,7 @@ def main():
 
     jq = updater.job_queue
     global job_send_toad
-    job_send_toad = jq.run_repeating(send_toad, interval=(3600 * 24), first=0)
+    job_send_toad = jq.run_repeating(send_toad, interval=(10), first=0)
 
     # log all errors
     dp.add_error_handler(error)
