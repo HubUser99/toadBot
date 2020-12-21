@@ -2,7 +2,7 @@ from telegram.ext import Updater, CommandHandler, CallbackContext, Job
 import logging
 import os
 import json
-from utils.files import get_data_from_file, get_images_names, save_data_to_file
+from utils.files import get_data_from_file, save_data_to_file
 from dotenv import load_dotenv, find_dotenv
 from typing import Any, Dict
 from utils.utils import get_image_url, remove_item_from_list
